@@ -344,9 +344,8 @@ struct Partition
     uint64_t width;
     /*Height of this partition*/
     uint64_t height;
-    //Width of the pond
-    uint64_t width;
-}
+};
+
 /* The pond is a 2D array of cells */
 /*static struct Cell pond[POND_SIZE_X][POND_SIZE_Y] = 
  * malloc((POND_SIZE_X*POND_SIZE_Y)* sizeof(struct Cell)); */
