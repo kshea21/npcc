@@ -328,12 +328,23 @@ struct Cell
 	/* Memory space for cell genome (genome is stored as four
 	 * bit instructions packed into machine size words) */
 	uintptr_t* genome;
-
+    
 #ifdef USE_PTHREADS_COUNT
 	pthread_mutex_t lock;
 #endif
 };
 
+struct Partition
+{
+    //Unique identifier for the thread assigned this partition
+    uint64_t threadNo;
+    //Where in the pond this partition starts from
+    static struct Cell** topLeft;
+    //Height of the pond
+    uint64_t height;
+    //Width of the pond
+    uint64_t width;
+}
 /* The pond is a 2D array of cells */
 /*static struct Cell pond[POND_SIZE_X][POND_SIZE_Y] = 
  * malloc((POND_SIZE_X*POND_SIZE_Y)* sizeof(struct Cell)); */
@@ -492,6 +503,36 @@ switch(dir) {
 return &pond[x][y]; /* This should never be reached */
 }
 
+#ifdef  USE_PTHREADS_COUNT
+//Makes the partitions based on number of threads
+static inline void makePartitions(uint64_t numThreads, struct Partition *partitionList){
+    if (numThreads != 4){
+        printf("Hey. This is not generalized yet. Try again w/ 4 threads!!!\n");
+        return;
+    }
+    partitionList[0].topLeft = &pond[0][0];
+    partitionList[0].width = (POND_SIZE_X)/2;
+    partitionList[0].height = (POND_SIZE_Y)/2;
+    partitionList[0].threadNo = 0; //belongs to first thread
+
+    partitionList[1].topLeft = &pond[POND_SIZE_X/2][0];
+    partitionList[1].width = (POND_SIZE_X)/2 + (POND_SIZE_X)%2;
+    partitionList[1].height = (POND_SIZE_Y)/2;
+    partitionList[1].threadNo = 1;
+
+
+    partitionList[2].topLeft = &pond[0][POND_SIZE_Y/2];
+    partitionList[2].width = (POND_SIZE_X)/2;
+    partitionList[2].height = (POND_SIZE_Y)/2 + (POND_SIZE_Y)%2;
+    partitionList[2].threadNo = 2;
+
+    partitionList[3].topleft = &pond[POND_SIZE_X/2][POND_SIZE_Y/2];
+    partitionList[3].width = (POND_SIZE_X)/2 + (POND_SIZE_X)/2;
+    partitionList[3].height = (POND_SIZE_Y)/2 + (POND_SIZE_Y)/2;
+    partitionList[3].threadNo = 3;
+}
+#endif
+
 static inline int accessAllowed(struct Cell *const c2,const uintptr_t c1guess,int sense)
 {
 /* Access permission is more probable if they are more similar in sense 0,
@@ -559,9 +600,13 @@ return 0; /* Cells with no energy are black */
 
 volatile int exitNow = 0;
 
-static void *run(void *targ)
+static void *run(*struct Partition p)
 {
-const uintptr_t threadNo = (uintptr_t)targ;
+const uintptr_t threadNo = (uintptr_t) p -> threadNo;
+uint64_t width = p -> width;
+uint64_t height = p -> height;
+struct Cell** topLeft = p -> topLeft;
+
 uintptr_t x,y,i;
 uintptr_t cycle = 0;
 clock_t start, end;
@@ -648,9 +693,9 @@ while (!exitNow) {
      * entropy into the substrate. This happens every INFLOW_FREQUENCY
      * cycle ticks. */
     if (!(cycle % INFLOW_FREQUENCY)) {
-        x = getRandom() % POND_SIZE_X;
-        y = getRandom() % POND_SIZE_Y;
-        pptr = &pond[x][y];
+        x = getRandom() % width;
+        y = getRandom() % height;
+        pptr = &topLeft[x][y];
 
 #ifdef USE_PTHREADS_COUNT
         pthread_mutex_lock(&(pptr->lock));
@@ -681,9 +726,9 @@ while (!exitNow) {
 
     /* Pick a random cell to execute */
     i = getRandom();
-    x = i % POND_SIZE_X;
-    y = ((i / POND_SIZE_X) >> 1) % POND_SIZE_Y;
-    pptr = &pond[x][y];
+    x = i % width;
+    y = ((i / width) >> 1) % height;
+    pptr = &topLeft[x][y];
 
     /* Reset the state of the VM prior to execution */
     for(i=0;i<POND_DEPTH_SYSWORDS;++i)
@@ -1139,13 +1184,22 @@ while ((opt = getopt(argc, argv, "x:y:m:f:v:b:p:c:k:d:ht:")) != -1) {
 	}
 
 #ifdef USE_PTHREADS_COUNT
-	pthread_t threads[USE_PTHREADS_COUNT];
+    //Create partitions for the threads
+    struct Partition partitionList[USE_PTHREADS_COUNT];
+    makePartitions[USE_PTHREADS_COUNT, partitionList];
+
+    pthread_t threads[USE_PTHREADS_COUNT];
 	for(i=1;i<USE_PTHREADS_COUNT;++i)
 		pthread_create(&threads[i],0,run,(void *)i);
 	run((void *)0);
 	for(i=1;i<USE_PTHREADS_COUNT;++i)
 		pthread_join(threads[i],(void **)0);
 #else
+    struct Partition serialPartition;
+    serialPartition.topleft[0][0];
+    serialPartition.width = POND_SIZE_X;
+    serialPartition.height = POND_SIZE_Y;
+    serialPartition.threadNo = 0;
 	run((void *)0);
 #endif
 
