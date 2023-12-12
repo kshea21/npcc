@@ -549,7 +549,7 @@ static inline void makePartitions(uint64_t numThreads, struct Partition *partiti
     partitionList[2].height = (POND_SIZE_Y)/2 + (POND_SIZE_Y)%2;
     partitionList[2].threadNo = 2;
 
-    partitionList[3].topleft = &pond[POND_SIZE_X/2][POND_SIZE_Y/2];
+    partitionList[3].topLeft = &pond[POND_SIZE_X/2][POND_SIZE_Y/2];
     partitionList[3].width = (POND_SIZE_X)/2 + (POND_SIZE_X)/2;
     partitionList[3].height = (POND_SIZE_Y)/2 + (POND_SIZE_Y)/2;
     partitionList[3].threadNo = 3;
@@ -1230,11 +1230,11 @@ while ((opt = getopt(argc, argv, "x:y:m:f:v:b:p:c:k:d:ht:")) != -1) {
 		pthread_join(threads[i],(void **)0);
 #else
     struct Partition serialPartition;
-    serialPartition.topleft[0][0];
+    serialPartition.topLeft[0][0];
     serialPartition.width = POND_SIZE_X;
     serialPartition.height = POND_SIZE_Y;
     serialPartition.threadNo = 0;
-	run((void *)0);
+	run(&serialPartition);
 #endif
 
 #ifdef USE_SDL
