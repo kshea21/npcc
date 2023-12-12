@@ -338,9 +338,19 @@ struct Partition
 {
     //Unique identifier for the thread assigned this partition
     uint64_t threadNo;
+<<<<<<< HEAD
     /*Where in the pond this partition starts from*/
     struct Cell** topLeft;
     /*Width of this partition*/
+=======
+
+    /* Pointer to cell in the top left of the partitoin */
+    struct Cell** topLeft;
+
+    /* Height of the partition */
+    uint64_t height; 
+
+    /* Width of the partition */
     uint64_t width;
     /*Height of this partition*/
     uint64_t height;
@@ -625,6 +635,7 @@ volatile int exitNow = 0;
 
 static void *run(struct Partition *p)
 {
+<<<<<<< HEAD
 const uintptr_t threadNo = (uintptr_t) p -> threadNo;
 uint64_t width = p -> width;
 uint64_t height = p -> height;
@@ -1224,12 +1235,13 @@ while ((opt = getopt(argc, argv, "x:y:m:f:v:b:p:c:k:d:ht:")) != -1) {
 
     pthread_t threads[USE_PTHREADS_COUNT];
 	for(i=1;i<USE_PTHREADS_COUNT;++i)
-		pthread_create(&threads[i],0,run,(void *)i);
+		pthread_create(&threads[i],0,run, &partitionList[i]);
 	run((void *)0);
 	for(i=1;i<USE_PTHREADS_COUNT;++i)
 		pthread_join(threads[i],(void **)0);
 #else
     struct Partition serialPartition;
+<<<<<<< HEAD
     serialPartition.topLeft[0][0];
     serialPartition.width = POND_SIZE_X;
     serialPartition.height = POND_SIZE_Y;
