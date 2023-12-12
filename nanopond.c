@@ -249,7 +249,8 @@ uintptr_t INFLOW_FREQUENCY;
 //#define INFLOW_RATE_BASE 600
 uintptr_t INFLOW_RATE_BASE;
 /* A random amount of energy between 0 and this is added to
- * INFLOW_RATE_BASE when energy is introduced. Comment this out for
+ * INFLOW_RATE_BASE
+ * when energy is introduced. Comment this out for
  * no variation in inflow rate. */
 //#define INFLOW_RATE_VARIATION 1000
 uintptr_t INFLOW_RATE_VARIATION;
