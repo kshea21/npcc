@@ -213,7 +213,13 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+<<<<<<< HEAD
 #include <pthread.h>
+=======
+
+#include <pthread.h>
+
+>>>>>>> dylanfr/splitpond
 #ifdef USE_SDL
 #ifdef _MSC_VER
 #include <SDL.h>
@@ -353,11 +359,19 @@ struct Partition
     uint64_t width;
     /*Height of this partition*/
     uint64_t height;
+<<<<<<< HEAD
 
     struct Partition* lneighbor; 
     struct Partition* rneighbor;
     struct Partition* uneighbor;
     struct Partition* dneighbor;
+=======
+    /*Pointers to neighbors*/
+    struct Partition* lNeighbor;
+    struct Partition* rNeighbor;
+    struct Partition* uNeighbor;
+    struct Partition* dNeighbor;
+>>>>>>> dylanfr/splitpond
 };
 
 /* The pond is a 2D array of cells */
@@ -501,39 +515,19 @@ fprintf(file,"\n");
 }
 #endif
 
-static inline void globalCoord(uintptr_t x, uintptr_t y, uint64_t threadNo, uintptr_t *globals ) {
-    switch (threadNo) {
-        case 0:
-            globals[0] = x;
-            globals[1] = y;
-            break;
-        case 1:
-            globals[0] = x+(POND_SIZE_X/2);
-            globals[1] = y;
-            break;
-        case 2:
-            globals[0] = x;
-            globals[1] = y+(POND_SIZE_Y/2);
-            break;
-        case 3:
-            globals[0] = x+(POND_SIZE_X/2);
-            globals[1] = y+(POND_SIZE_Y/2);
-            break;
-    }
-}
 
 static inline struct Cell *getNeighbor(const uintptr_t x,const uintptr_t y,const uintptr_t dir, struct Partition *curP)
 {
 /* Space is toroidal; it wraps at edges */
 switch(dir) {
     case N_LEFT:
-        return (x) ? &curP->topLeft[x-1][y] : &curP->lneighbor->topLeft[POND_SIZE_X-1][y];
-        case N_RIGHT:
-        return (x < (POND_SIZE_X-1)) ? &curP->topLeft[x+1][y] : &curP->rneighbor->topLeft[0][y];
+        return (x) ? &curP->topLeft[x-1][y] : &curP->lNeighbor->topLeft[POND_SIZE_X-1][y];
+    case N_RIGHT:
+        return (x < (POND_SIZE_X-1)) ? &curP->topLeft[x+1][y] : &curP->rNeighbor->topLeft[0][y];
     case N_UP:
-        return (y) ? &curP->topLeft[x][y-1] : &curP->uneighbor->topLeft[x][POND_SIZE_Y-1];
+        return (y) ? &curP->topLeft[x][y-1] : &curP->uNeighbor->topLeft[x][POND_SIZE_Y-1];
     case N_DOWN:
-        return (y < (POND_SIZE_Y-1)) ? &curP->topLeft[x][y+1] : &curP->dneighbor->topLeft[x][0];
+        return (y < (POND_SIZE_Y-1)) ? &curP->topLeft[x][y+1] : &curP->dNeighbor->topLeft[x][0];
 }
 return &curP->topLeft[x][y]; /* This should never be reached */
 }
@@ -561,11 +555,10 @@ static inline int makePartitions(struct Partition *partitionList) {
     partitionList[0].height = POND_SIZE_Y;
     partitionList[0].topLeft = ((struct Cell**)calloc(POND_SIZE_X, sizeof(struct Cell*)));
     
-    partitionList[0].lneighbor = &partitionList[0];
-    partitionList[0].rneighbor = &partitionList[0];
-    partitionList[0].uneighbor = &partitionList[0];
-    partitionList[0].dneighbor = &partitionList[0];
-
+    partitionList[0].lNeighbor = &partitionList[0];
+    partitionList[0].rNeighbor = &partitionList[0];
+    partitionList[0].uNeighbor = &partitionList[0];
+    partitionList[0].dNeighbor = &partitionList[0];
     //Allocate memory in the same way as pond
     for(uintptr_t i = 0; i < POND_SIZE_X; i++){
        partitionList[0].topLeft[i] = ((struct Cell*)calloc(POND_SIZE_Y, sizeof(struct Cell)));
@@ -583,10 +576,10 @@ static inline int makePartitions(struct Partition *partitionList) {
     partitionList[0].height = POND_SIZE_Y/2;
     partitionList[0].threadNo = 0;
     
-    partitionList[0].lneighbor = &partitionList[0];
-    partitionList[0].rneighbor = &partitionList[0];
-    partitionList[0].uneighbor = &partitionList[2];
-    partitionList[0].dneighbor = &partitionList[2];
+    partitionList[0].lNeighbor = &partitionList[1];
+    partitionList[0].rNeighbor = &partitionList[1];
+    partitionList[0].uNeighbor = &partitionList[2];
+    partitionList[0].dNeighbor = &partitionList[2];
 
     partitionList[1].width = POND_SIZE_X/2 + POND_SIZE_X%2;
     partitionList[1].height = POND_SIZE_Y/2;
@@ -596,11 +589,6 @@ static inline int makePartitions(struct Partition *partitionList) {
     partitionList[1].uNeighbor = &partitionList[3];
     partitionList[1].dNeighbor = &partitionList[3];
 
-    partitionList[1].lneighbor = &partitionList[0];
-    partitionList[1].rneighbor = &partitionList[0];
-    partitionList[1].uneighbor = &partitionList[3];
-    partitionList[1].dneighbor = &partitionList[3];
-
     partitionList[2].width = POND_SIZE_X/2;
     partitionList[2].height = POND_SIZE_Y/2 + POND_SIZE_Y%2;
     partitionList[2].threadNo = 2;
@@ -609,11 +597,6 @@ static inline int makePartitions(struct Partition *partitionList) {
     partitionList[2].uNeighbor = &partitionList[0];
     partitionList[2].dNeighbor = &partitionList[0];
 
-    partitionList[2].lneighbor = &partitionList[3];
-    partitionList[2].rneighbor = &partitionList[3];
-    partitionList[2].uneighbor = &partitionList[0];
-    partitionList[2].dneighbor = &partitionList[0];
-
     partitionList[3].width = POND_SIZE_X/2 + POND_SIZE_X%2;
     partitionList[3].height = POND_SIZE_Y/2 + POND_SIZE_Y%2;
     partitionList[3].threadNo = 3;
@@ -621,11 +604,6 @@ static inline int makePartitions(struct Partition *partitionList) {
     partitionList[3].rNeighbor = &partitionList[2];
     partitionList[3].uNeighbor = &partitionList[1];
     partitionList[3].dNeighbor = &partitionList[1];
-
-    partitionList[3].lneighbor = &partitionList[2];
-    partitionList[3].rneighbor = &partitionList[2];
-    partitionList[3].uneighbor = &partitionList[1];
-    partitionList[3].dneighbor = &partitionList[1];
 
     for (int pN = 0; pN<USE_PTHREADS_COUNT; pN++) {
         //Alloc first level array
@@ -753,9 +731,8 @@ return 0; /* Cells with no energy are black */
 #endif
 
 uintptr_t globalcycle = 0;
-
- /** array of booleans to keep track of which threads are done */
-#ifdef USE_PTHREADS_COUNT 
+/** Array of booleans to keep track of which threads are done */
+#ifdef USE_PTHREADS_COUNT
 uint8_t threadComplete[USE_PTHREADS_COUNT];
 #else
 uint8_t threadComplete[1];
@@ -776,14 +753,14 @@ static void *runReporting(){
             }
         }
         allDone = numThreads;
-        while(allDone > 0) {
-               allDone = numThreads;
-               for(uint64_t i=0; i<numThreads; i++) {
-                    if (!threadComplete[i]) {
-                        allDone--;
-                    }
+        while(allDone>0){
+            allDone = numThreads;
+            for(uint i=0; i<numThreads; i++){
+                if(!threadComplete[i]){
+                    allDone--;
                 }
-         }
+            }
+        }
         doReport(globalcycle);
     }
 
@@ -791,10 +768,9 @@ static void *runReporting(){
 }
 
 /** Copy memory from partition into global pond */
-    static inline void copyMem(struct Partition *p) {
-    uint64_t yOffset = 0;
+static inline void copyMem(struct Partition *p){
     uint64_t xOffset = 0;
-    
+    uint64_t yOffset = 0;
     switch(p->threadNo){
         case 0:
             break;
@@ -809,8 +785,8 @@ static void *runReporting(){
             yOffset = POND_SIZE_Y/2;
             break;
     }
-    for (uint64_t x=0; x<p->width; x++) {
-        for(uint64_t y=0; y<p->height; y++) {
+    for(uint64_t x=0; x<p->width; x++){
+        for(uint64_t y=0; y<p->height; y++){
             memcpy(globalpond[x+xOffset][y+yOffset].genome, p->topLeft[x][y].genome, sizeof(uintptr_t)*POND_DEPTH_SYSWORDS);
             globalpond[x+xOffset][y+yOffset].ID = p->topLeft[x][y].ID;
             globalpond[x+xOffset][y+yOffset].parentID = p->topLeft[x][y].parentID;
@@ -818,10 +794,11 @@ static void *runReporting(){
             globalpond[x+xOffset][y+yOffset].generation = p->topLeft[x][y].generation;
             globalpond[x+xOffset][y+yOffset].energy = p->topLeft[x][y].energy;
         }
-
-    }    
-
+    }
 }
+
+
+
 
 static void *run(void *targ)
 {// void* targ is a partition*
@@ -834,7 +811,7 @@ struct Cell** topLeft = p->topLeft;
 
 uintptr_t x,y,i;
 uintptr_t cycle = 0;
-//clock_t start, end;
+//start_t start,end;
 //start=clock();
 /* Buffer used for execution output of candidate offspring */
 uintptr_t outputBuf[POND_DEPTH_SYSWORDS];
@@ -880,26 +857,24 @@ while (!exitNow) {
     /* Clock is incremented at the start, so it starts at 1 */
     ++cycle;
     if ((!(cycle % REPORT_FREQUENCY))) {
-        if(threadNo== 0) {
+        if(threadNo == 0){
             globalcycle = cycle;
         }
         threadComplete[threadNo] = 1;
         uint8_t allDone = numThreads;
-
-        while(allDone > 0) {
+        while(allDone>0){
             allDone = numThreads;
-            for(uint64_t i=0; i<numThreads; i++) {
-                if (threadComplete[i]) {
+            for(uint64_t i=0; i<numThreads; i++){
+                if(threadComplete[i]){
                     allDone--;
                 }
 
             }
         }
-        /** all threads finished if we've gotten to here*/
-
-        //copy memory next
-       
-
+        /** all threads finished if we've gotten to this point */
+        
+        /** NOW WE COPY MEMORY BUT DONT ASK ME HOW */
+        
         threadComplete[threadNo] = 0;
     }
 
@@ -910,8 +885,14 @@ while (!exitNow) {
     if (!(cycle % INFLOW_FREQUENCY)) {
         x = getRandom() % width;
         y = getRandom() % height;
+        /*
         uintptr_t globals[2];
         globalCoord(x,y,threadNo,globals);
+<<<<<<< HEAD
+=======
+        uintptr_t globalx = globals[0];
+        uintptr_t globaly = globals[1];
+        */
 
         pptr = &topLeft[x][y];
 
@@ -928,7 +909,7 @@ while (!exitNow) {
 #else
         pptr->energy += INFLOW_RATE_BASE;
 #endif /* INFLOW_RATE_VARIATION */
-        for(i=0;i<POND_DEPTH_SYSWORDS;++i) { 
+        for(i=0;i<POND_DEPTH_SYSWORDS;++i){ 
             pptr->genome[i] = getRandom();
         }
         ++cellIdCounter;
@@ -953,12 +934,11 @@ while (!exitNow) {
   //  uintptr_t globalx = globals[0];
   //  uintptr_t globaly = globals[1];
 
+    /* Reset the state of the VM prior to execution */
     pptr = &topLeft[x][y];
 
-    /* Reset the state of the VM prior to execution */
     for(i=0;i<POND_DEPTH_SYSWORDS;++i) {
         outputBuf[i] = ~((uintptr_t)0); /* ~0 == 0xfffff... */
-   
     }
     ptr_wordPtr = 0;
     ptr_shiftPtr = 0;
@@ -1173,8 +1153,9 @@ while (!exitNow) {
             tmpptr->lineage = pptr->lineage; /* Lineage is copied in offspring */
             tmpptr->generation = pptr->generation + 1;
 
-            for(i=0;i<POND_DEPTH_SYSWORDS;++i)
+            for(i=0;i<POND_DEPTH_SYSWORDS;++i) {
                 tmpptr->genome[i] = outputBuf[i];
+            }
         }
 #ifdef USE_PTHREADS_COUNT
         pthread_mutex_unlock(&(tmpptr->lock));
@@ -1324,9 +1305,8 @@ while ((opt = getopt(argc, argv, "x:y:m:f:v:b:p:c:k:d:ht:")) != -1) {
         }
     }
 
-    /* Setup global snapshot pond */
-
-    globalpond = ((struct Cell**)calloc(POND_SIZE_X, sizeof(struct Cell*)));
+    /** Setup global snapshot pond */
+    globalpond = ((struct Cell**)calloc(POND_SIZE_X, sizeof(struct Cell*))); 
     for(uintptr_t i = 0; i < POND_SIZE_X; i++){
        globalpond[i] = ((struct Cell*)calloc(POND_SIZE_Y, sizeof(struct Cell)));
     }
@@ -1358,9 +1338,9 @@ while ((opt = getopt(argc, argv, "x:y:m:f:v:b:p:c:k:d:ht:")) != -1) {
 	prngState[1] = (uint64_t)rand();
 
 	/* Reset per-report stat counters */
-	for(x=0;x<sizeof(statCounters);++x)
+	for(x=0;x<sizeof(statCounters);++x) {
 		((uint8_t *)&statCounters)[x] = (uint8_t)0;
-	
+    }
 	/* Set up SDL if we're using it */
 #ifdef USE_SDL
 	if (SDL_Init(SDL_INIT_VIDEO) < 0 ) {
@@ -1404,20 +1384,17 @@ while ((opt = getopt(argc, argv, "x:y:m:f:v:b:p:c:k:d:ht:")) != -1) {
 
     pthread_t reportThread;
     pthread_create(&reportThread,0,runReporting,(void *)NULL);
-#ifdef USE_PTHREADS_COUNT
-   
+#ifdef USE_PTHREADS_COUNT 
 	pthread_t threads[USE_PTHREADS_COUNT];
-	for(uintptr_t i=1;i<USE_PTHREADS_COUNT;++i) {
+	for(uint64_t i=1;i<USE_PTHREADS_COUNT;++i) {
         threadComplete[i] = 0;
         pthread_create(&threads[i],0,run, (void *)&partitionList[i]);
     }
-    threadComplete[0] = 0;
+	threadComplete[0] = 0;
     run(&partitionList[0]);
-    
-	for(uintptr_t i=1;i<USE_PTHREADS_COUNT;++i) {
+	for(uint64_t i=1;i<USE_PTHREADS_COUNT;++i) {
 		pthread_join(threads[i], (void**)0);
-
-       }
+    }
 #else
 	run((void *)&partitionList[0]);
 #endif
