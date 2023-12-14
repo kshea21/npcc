@@ -1347,7 +1347,7 @@ while ((opt = getopt(argc, argv, "x:y:m:f:v:b:p:c:k:d:ht:")) != -1) {
 
     // POND_DEPTH_SYSWORDS = (int*)calloc(POND_DEPTH / (sizeof(uintptr_t) * 2), sizeof(int));
     //int POND_SIZE_X = 800;
-	uintptr_t x,i;
+	uintptr_t x;
     //const int POND_SIZE_X = 800;
 	/* Seed and init the random number generator */
 	prngState[0] = (uint64_t)time(NULL);
@@ -1402,7 +1402,7 @@ while ((opt = getopt(argc, argv, "x:y:m:f:v:b:p:c:k:d:ht:")) != -1) {
     pthread_t reportThread;
     pthread_create(&reportThread,0,runReporting,(void *)NULL);
 #ifdef USE_PTHREADS_COUNT
-
+   uintptr_t i;
 	pthread_t threads[USE_PTHREADS_COUNT];
 	for(i=1;i<USE_PTHREADS_COUNT;++i)
         threadComplete[i] = 0;
