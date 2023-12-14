@@ -803,7 +803,8 @@ static inline void copyMem(struct Partition *p){
     }
 }
 
-
+static void *run(void *targ)
+{// void* targ is a partition*
 struct Partition *p = (struct Partition *)targ;
 const uintptr_t threadNo = (uintptr_t)p->threadNo;
 uint64_t width = p->width;
