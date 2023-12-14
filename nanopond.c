@@ -928,8 +928,10 @@ while (!exitNow) {
 #else
         pptr->energy += INFLOW_RATE_BASE;
 #endif /* INFLOW_RATE_VARIATION */
-        for(i=0;i<POND_DEPTH_SYSWORDS;++i) 
+        for(i=0;i<POND_DEPTH_SYSWORDS;++i) { 
             pptr->genome[i] = getRandom();
+
+        }
         ++cellIdCounter;
     
         /* Update the random cell on SDL screen if viz is enabled */
@@ -947,16 +949,18 @@ while (!exitNow) {
     x = i % width;
     y = ((i / width) >> 1) % height;
 
-    uintptr_t globals[2];
-    globalCoord(x,y,threadNo,globals);
-    uintptr_t globalx = globals[0];
-    uintptr_t globaly = globals[1];
+  //  uintptr_t globals[2];
+  //  globalCoord(x,y,threadNo,globals);
+  //  uintptr_t globalx = globals[0];
+  //  uintptr_t globaly = globals[1];
 
     pptr = &topLeft[x][y];
 
     /* Reset the state of the VM prior to execution */
-    for(i=0;i<POND_DEPTH_SYSWORDS;++i)
+    for(i=0;i<POND_DEPTH_SYSWORDS;++i) {
         outputBuf[i] = ~((uintptr_t)0); /* ~0 == 0xfffff... */
+   
+    }
     ptr_wordPtr = 0;
     ptr_shiftPtr = 0;
     reg = 0;
@@ -1097,7 +1101,7 @@ while (!exitNow) {
                     currentWord = pptr->genome[wordPtr];
                     break;
                 case 0xd: /* KILL: Blow away neighboring cell if allowed with penalty on failure */
-                    tmpptr = getNeighbor(globalx,globaly,facing,p);
+                    tmpptr = getNeighbor(x,y,facing,p);
                     if (accessAllowed(tmpptr,reg,0)) {
                         if (tmpptr->generation > 2)
                             ++statCounters.viableCellsKilled;
@@ -1118,7 +1122,7 @@ while (!exitNow) {
                     }
                     break;
                 case 0xe: /* SHARE: Equalize energy between self and neighbor if allowed */
-                    tmpptr = getNeighbor(globalx,globaly,facing,p);
+                    tmpptr = getNeighbor(x,y,facing,p);
                     if (accessAllowed(tmpptr,reg,1)) {
 #ifdef USE_PTHREADS_COUNT
                         pthread_mutex_lock(&(tmpptr->lock));
@@ -1156,7 +1160,7 @@ while (!exitNow) {
      * would never be executed and then would be replaced with random
      * junk eventually. See the seeding code in the main loop above. */
     if ((outputBuf[0] & 0xff) != 0xff) {
-        tmpptr = getNeighbor(globalx,globaly,facing, p);
+        tmpptr = getNeighbor(x,y,facing, p);
 #ifdef USE_PTHREADS_COUNT
         pthread_mutex_lock(&(tmpptr->lock));
 #endif
@@ -1402,15 +1406,19 @@ while ((opt = getopt(argc, argv, "x:y:m:f:v:b:p:c:k:d:ht:")) != -1) {
     pthread_t reportThread;
     pthread_create(&reportThread,0,runReporting,(void *)NULL);
 #ifdef USE_PTHREADS_COUNT
-   uintptr_t i;
+   
 	pthread_t threads[USE_PTHREADS_COUNT];
-	for(i=1;i<USE_PTHREADS_COUNT;++i)
+	for(uintptr_t i=1;i<USE_PTHREADS_COUNT;++i) {
         threadComplete[i] = 0;
         pthread_create(&threads[i],0,run, (void *)&partitionList[i]);
-	threadComplete[0] = 0;
+    }
+    threadComplete[0] = 0;
     run(&partitionList[0]);
-	for(i=1;i<USE_PTHREADS_COUNT;++i)
+    
+	for(uintptr_t i=1;i<USE_PTHREADS_COUNT;++i) {
 		pthread_join(threads[i], (void**)0);
+
+       }
 #else
 	run((void *)&partitionList[0]);
 #endif
