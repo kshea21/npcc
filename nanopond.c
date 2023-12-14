@@ -214,10 +214,7 @@
 #include <time.h>
 #include <unistd.h>
 
-#ifdef USE_PTHREADS_COUNT
 #include <pthread.h>
-#endif
-
 #ifdef USE_SDL
 #ifdef _MSC_VER
 #include <SDL.h>
@@ -274,6 +271,12 @@ uintptr_t FAILED_KILL_PENALTY;
  *  * available and you must link with the SDL library when you compile. */
 /* Comment this out to compile without SDL visualization support. */
 // #define USE_SDL 1
+
+#ifndef USE_PTHREADS_COUNT
+uint64_t numThreads = 1;
+#else
+uint64_t numThreads = USE_PTHREADS_COUNT;
+#endif
 
 volatile uint64_t prngState[2];
 static inline uintptr_t getRandom()
@@ -361,7 +364,7 @@ struct Partition
 /* The pond is a 2D array of cells */
 /*static struct Cell pond[POND_SIZE_X][POND_SIZE_Y] = 
  * malloc((POND_SIZE_X*POND_SIZE_Y)* sizeof(struct Cell)); */
-static struct Cell** pond; /*= ((struct Cell**)calloc(POND_SIZE_X, sizeof(struct Cell*)));
+static struct Cell** globalpond; /*= ((struct Cell**)calloc(POND_SIZE_X, sizeof(struct Cell*)));
 
 for(int i = 0; i < POND_SIZE_X; i++){
     pond[i] = (struct Cell*)calloc(POND_SIZE_Y, sizeof(struct Cell));
@@ -410,7 +413,7 @@ static void doReport(const uint64_t cycle)
 	
 	for(x=0;x<POND_SIZE_X;++x) {
 		for(y=0;y<POND_SIZE_Y;++y) {
-			struct Cell *const c = &pond[x][y];
+			struct Cell *const c = &globalpond[x][y];
 			if (c->energy) {
 				++totalActiveCells;
 				totalEnergy += (uint64_t)c->energy;
@@ -531,11 +534,11 @@ switch(dir) {
         case N_RIGHT:
         return (x < (POND_SIZE_X-1)) ? &curP->topLeft[x+1][y] : &curP->rneighbor->topLeft[0][y];
     case N_UP:
-        return (y) ? &curP->topLeft[x][y-1] : &pcurP->uneighbor->topLeft[x][POND_SIZE_Y-1];
+        return (y) ? &curP->topLeft[x][y-1] : &curP->uneighbor->topLeft[x][POND_SIZE_Y-1];
     case N_DOWN:
         return (y < (POND_SIZE_Y-1)) ? &curP->topLeft[x][y+1] : &curP->dneighbor->topLeft[x][0];
 }
-return &pond[x][y]; /* This should never be reached */
+return &curP->topLeft[x][y]; /* This should never be reached */
 }
 /** Take a number of threads and divide pond up evenly into that many partitons.
  * Assumes partitionList is numThreads long
@@ -560,10 +563,10 @@ static inline int makePartitions(struct Partition *partitionList) {
     partitionList[0].height = POND_SIZE_Y;
     partitionList[0].topLeft = ((struct Cell**)calloc(POND_SIZE_X, sizeof(struct Cell*)));
 
-    partitionList[0].lneighbor = partitionList[0];
-    partitionList[0].rneighbor = partitionList[0];
-    partitionList[0].uneighbor = partitionList[0];
-    partitionList[0].dneighbor = partitionList[0];
+    partitionList[0].lneighbor = &partitionList[0];
+    partitionList[0].rneighbor = &partitionList[0];
+    partitionList[0].uneighbor = &partitionList[0];
+    partitionList[0].dneighbor = &partitionList[0];
 
     //Allocate memory in the same way as pond
     for(uintptr_t i = 0; i < POND_SIZE_X; i++){
@@ -744,10 +747,82 @@ return 0; /* Cells with no energy are black */
 }
 #endif
 
+uintptr_t globalcycle = 0;
+
+
+ /** array of booleans to keep track of which threads are done */
+#ifdef USE_PTHREADS_COUNT 
+uint8_t threadComplete[USE_PTHREADS_COUNT];
+#else
+uint8_t threadComplete[1];
+#endif
+
+
+/** add a thread to report */
+static void runReporting() {
+        uint8_t allDone = numThreads; 
+        while(allDone > 0) {
+             allDone = numThreads;
+             for(uint64_t i=0; i<numThreads; i++) {
+                  if (threadComplete[i]) {
+                      allDone--;
+                  }
+              }
+        }
+        allDone = numThreads;
+        while(allDone > 0) {
+               allDone = numThreads;
+               for(uint64_t i=0; i<numThreads; i++) {
+                    if (!threadComplete[i]) {
+                        allDone--;
+                    }
+                }
+         }
+        doReport(globalcycle);
+        
+}
+
+/** Copy memory from partition into global pond */
+
+static inline void copyMem(struct Partition *p) {
+    uint64_t xOffset = 0;
+    uint64_t yOffset = 0;
+    
+    switch(p->threadNo){
+        case 0:
+            break;
+        case 1:
+            xOffset = POND_SIZE_X/2;
+            break;
+        case 2:
+            yOffset = POND_SIZE_Y/2;
+            break;
+        case 3:
+            xOffset = POND_SIZE_X/2;
+            yOffset = POND_SIZE_Y/2;
+            break;
+    }
+    for (uint64_t x=0; x<p->width; x++) {
+        for(uint64_t y=0; y<p->height; y++) {
+            memcpy(globalpond[x+xOffset][y+yOffset].genome, p->topLeft[x][y].genome, sizeof(uintptr_t)*POND_DEPTH_SYSWORDS);
+            globalpond[x+xOffset][y+yOffset].ID = p->topLeft[x][y].ID;
+            globalpond[x+xOffset][y+yOffset].parentID = p->topLeft[x][y].parentID;
+            globalpond[x+xOffset][y+yOffset].lineage = p->topLeft[x][y].lineage;
+            globalpond[x+xOffset][y+yOffset].generation = p->topLeft[x][y].generation;
+            globalpond[x+xOffset][y+yOffset].energy = p->topLeft[x][y].energy;
+        }
+
+    }    
+
+}
+
+
 volatile int exitNow = 0;
+
 
 static void *run(struct Partition *p)
 {
+
 const uintptr_t threadNo = (uintptr_t)p->threadNo;
 uint64_t width = p->width;
 uint64_t height = p->height;
@@ -756,8 +831,8 @@ struct Cell** topLeft = p->topLeft;
 
 uintptr_t x,y,i;
 uintptr_t cycle = 0;
-clock_t start, end;
-start=clock();
+//clock_t start, end;
+//start=clock();
 /* Buffer used for execution output of candidate offspring */
 uintptr_t outputBuf[POND_DEPTH_SYSWORDS];
 
@@ -801,38 +876,29 @@ while (!exitNow) {
     /* Increment cycle and run reports periodically */
     /* Clock is incremented at the start, so it starts at 1 */
     ++cycle;
-    if ((threadNo == 0)&&(!(cycle % REPORT_FREQUENCY))) {
-        doReport(cycle);
-        /* SDL display is also refreshed every REPORT_FREQUENCY */
-#ifdef USE_SDL
-        while (SDL_PollEvent(&sdlEvent)) {
-            if (sdlEvent.type == SDL_QUIT) {
-                fprintf(stderr,"[QUIT] Quit signal received!\n");
-                exitNow = 1;
-            } else if (sdlEvent.type == SDL_MOUSEBUTTONDOWN) {
-                switch (sdlEvent.button.button) {
-                    case SDL_BUTTON_LEFT:
-                        fprintf(stderr,"[INTERFACE] Genome of cell at (%d, %d):\n",sdlEvent.button.x, sdlEvent.button.y);
-                        dumpCell(stderr, &pond[sdlEvent.button.x][sdlEvent.button.y]);
-                        break;
-                    case SDL_BUTTON_RIGHT:
-                        colorScheme = (colorScheme + 1) % MAX_COLOR_SCHEME;
-                        fprintf(stderr,"[INTERFACE] Switching to color scheme \"%s\".\n",colorSchemeName[colorScheme]);
-                        for (y=0;y<POND_SIZE_Y;++y) {
-                            for (x=0;x<POND_SIZE_X;++x)
-                                ((uint8_t *)screen->pixels)[x + (y * sdlPitch)] = getColor(&pond[x][y]);
-                        }
-                        break;
+    if ((!(cycle % REPORT_FREQUENCY))) {
+        if(threadNo== 0) {
+            globalcycle = cycle;
+        }
+        threadComplete[threadNo] = 1;
+        uint8_t allDone = numThreads;
+
+        while(allDone > 0) {
+            allDone = numThreads;
+            for(uint64_t i=0; i<numThreads; i++) {
+                if (threadComplete[i]) {
+                    allDone--;
                 }
+
             }
         }
-        SDL_BlitSurface(screen, NULL, winsurf, NULL);
-        SDL_UpdateWindowSurface(window);
-#endif /* USE_SDL */
-        end=clock();
-        if((cycle >= MAX_CLOCK) || ((( (uintptr_t)( (end-start)/CLOCKS_PER_SEC) ) >= MAX_SECONDS) && ((int)MAX_SECONDS!=-1))) {
-            exitNow = 1;
-        }
+
+        /** all threads finished if we've gotten to here*/
+
+        //copy memory next
+       
+
+        threadComplete[threadNo] = 0;
     }
 
     /* Introduce a random cell somewhere with a given energy level */
@@ -844,8 +910,8 @@ while (!exitNow) {
         y = getRandom() % height;
         uintptr_t globals[2];
         globalCoord(x,y,threadNo,globals);
-        uintptr_t globalx = globals[0];
-        uintptr_t globaly = globals[1];
+        //uintptr_t globalx = globals[0];
+        //uintptr_t globaly = globals[1];
 
         pptr = &topLeft[x][y];
 
@@ -1031,7 +1097,7 @@ while (!exitNow) {
                     currentWord = pptr->genome[wordPtr];
                     break;
                 case 0xd: /* KILL: Blow away neighboring cell if allowed with penalty on failure */
-                    tmpptr = getNeighbor(globalx,globaly,facing);
+                    tmpptr = getNeighbor(globalx,globaly,facing,p);
                     if (accessAllowed(tmpptr,reg,0)) {
                         if (tmpptr->generation > 2)
                             ++statCounters.viableCellsKilled;
@@ -1052,7 +1118,7 @@ while (!exitNow) {
                     }
                     break;
                 case 0xe: /* SHARE: Equalize energy between self and neighbor if allowed */
-                    tmpptr = getNeighbor(globalx,globaly,facing);
+                    tmpptr = getNeighbor(globalx,globaly,facing,p);
                     if (accessAllowed(tmpptr,reg,1)) {
 #ifdef USE_PTHREADS_COUNT
                         pthread_mutex_lock(&(tmpptr->lock));
@@ -1090,7 +1156,7 @@ while (!exitNow) {
      * would never be executed and then would be replaced with random
      * junk eventually. See the seeding code in the main loop above. */
     if ((outputBuf[0] & 0xff) != 0xff) {
-        tmpptr = getNeighbor(globalx,globaly,facing);
+        tmpptr = getNeighbor(globalx,globaly,facing, p);
 #ifdef USE_PTHREADS_COUNT
         pthread_mutex_lock(&(tmpptr->lock));
 #endif
@@ -1254,6 +1320,21 @@ while ((opt = getopt(argc, argv, "x:y:m:f:v:b:p:c:k:d:ht:")) != -1) {
                 exit(EXIT_FAILURE);
         }
     }
+
+    /* Setup global snapshot pond */
+
+    globalpond = ((struct Cell**)calloc(POND_SIZE_X, sizeof(struct Cell*)));
+    for(uintptr_t i = 0; i < POND_SIZE_X; i++){
+       globalpond[i] = ((struct Cell*)calloc(POND_SIZE_Y, sizeof(struct Cell)));
+    }
+
+    for(uintptr_t i = 0; i < POND_SIZE_X; i++){
+        for(uintptr_t j = 0; j < POND_SIZE_Y; j++){
+            //printf("%d\n", globalpond[i][j].ID);
+            globalpond[i][j].genome = (uintptr_t*)calloc(POND_DEPTH_SYSWORDS, sizeof(uintptr_t));
+        }
+    }
+
     /* Allocate pond data inside partitions instead of in main
     */
     #ifdef USE_PTHREADS_COUNT
@@ -1266,7 +1347,7 @@ while ((opt = getopt(argc, argv, "x:y:m:f:v:b:p:c:k:d:ht:")) != -1) {
 
     // POND_DEPTH_SYSWORDS = (int*)calloc(POND_DEPTH / (sizeof(uintptr_t) * 2), sizeof(int));
     //int POND_SIZE_X = 800;
-	uintptr_t i,x,y;
+	uintptr_t x,i;
     //const int POND_SIZE_X = 800;
 	/* Seed and init the random number generator */
 	prngState[0] = (uint64_t)time(NULL);
@@ -1318,11 +1399,15 @@ while ((opt = getopt(argc, argv, "x:y:m:f:v:b:p:c:k:d:ht:")) != -1) {
 #endif /* USE_SDL */
 /*Initialization moved into makePartitions*/ 
 
+    pthread_t reportThread;
+    pthread_create(&reportThread, 0,runReporting, NULL);
 #ifdef USE_PTHREADS_COUNT
 
 	pthread_t threads[USE_PTHREADS_COUNT];
 	for(i=1;i<USE_PTHREADS_COUNT;++i)
+        threadComplete[i]=0;
 		pthread_create(&threads[i],0,run, &partitionList[i]);
+    threadComplete[0] = 0;
 	run(&partitionList[0]);
 	for(i=1;i<USE_PTHREADS_COUNT;++i)
 		pthread_join(threads[i], (void**)0);
