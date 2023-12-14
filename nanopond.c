@@ -440,9 +440,6 @@ printf("%lu,%lu,%lu,%lu,%lu,%lu,%lu,%lu",
     (uint64_t)statCounters.viableCellShares
     );
 
-/* The next 16 are the average frequencies of execution for each
- * instruction per cell execution. */
-double totalMetabolism = 0.0;
 for(x=0;x<16;++x) {
     totalMetabolism += statCounters.instructionExecutions[x];
     printf(",%.4f",(statCounters.cellExecutions > 0.0) ? (statCounters.instructionExecutions[x] / statCounters.cellExecutions) : 0.0);
@@ -747,8 +744,11 @@ uint8_t threadComplete[USE_PTHREADS_COUNT];
 uint8_t threadComplete[1];
 #endif
 
+volatile int exitNow = 0;
+
 /** Add a thread whose sole purpose is to do the reporting */
-static void runReporting(){ 
+static void *runReporting(){ 
+    while (!exitNow) {
         uint8_t allDone = numThreads;
         while(allDone>0){
             allDone = numThreads;
@@ -768,6 +768,9 @@ static void runReporting(){
             }
         }
         doReport(globalcycle);
+    }
+
+        return (void *)0;
 }
 
 /** Copy memory from partition into global pond */
@@ -800,10 +803,8 @@ static inline void copyMem(struct Partition *p){
     }
 }
 
-volatile int exitNow = 0;
 
-static void *run(struct Partition *p)
-{
+struct Partition *p = (struct Partition *)targ;
 const uintptr_t threadNo = (uintptr_t)p->threadNo;
 uint64_t width = p->width;
 uint64_t height = p->height;
@@ -1374,19 +1375,19 @@ while ((opt = getopt(argc, argv, "x:y:m:f:v:b:p:c:k:d:ht:")) != -1) {
 /*Initialization moved into makePartitions*/ 
 
     pthread_t reportThread;
-    pthread_create(&reportThread,0,runReporting,NULL);
+    pthread_create(&reportThread,0,runReporting,(void *)NULL);
 #ifdef USE_PTHREADS_COUNT
 
 	pthread_t threads[USE_PTHREADS_COUNT];
 	for(uintptr_t i=1;i<USE_PTHREADS_COUNT;++i)
         threadComplete[i] = 0;
-        pthread_create(&threads[i],0,run, &partitionList[i]);
+        pthread_create(&threads[i],0,run, (void *)&partitionList[i]);
 	threadComplete[0] = 0;
     run(&partitionList[0]);
 	for(uintptr_t i=1;i<USE_PTHREADS_COUNT;++i)
 		pthread_join(threads[i], (void**)0);
 #else
-	run(&partitionList[0]);
+	run((void *)&partitionList[0]);
 #endif
 
 #ifdef USE_SDL
