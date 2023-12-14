@@ -439,7 +439,7 @@ printf("%lu,%lu,%lu,%lu,%lu,%lu,%lu,%lu",
     (uint64_t)statCounters.viableCellsKilled,
     (uint64_t)statCounters.viableCellShares
     );
-
+double totalMetabolism = 0.0;
 for(x=0;x<16;++x) {
     totalMetabolism += statCounters.instructionExecutions[x];
     printf(",%.4f",(statCounters.cellExecutions > 0.0) ? (statCounters.instructionExecutions[x] / statCounters.cellExecutions) : 0.0);
@@ -1378,14 +1378,14 @@ while ((opt = getopt(argc, argv, "x:y:m:f:v:b:p:c:k:d:ht:")) != -1) {
     pthread_t reportThread;
     pthread_create(&reportThread,0,runReporting,(void *)NULL);
 #ifdef USE_PTHREADS_COUNT
-
+    uintptr_t i;
 	pthread_t threads[USE_PTHREADS_COUNT];
-	for(uintptr_t i=1;i<USE_PTHREADS_COUNT;++i)
+	for(i=1;i<USE_PTHREADS_COUNT;++i)
         threadComplete[i] = 0;
         pthread_create(&threads[i],0,run, (void *)&partitionList[i]);
 	threadComplete[0] = 0;
     run(&partitionList[0]);
-	for(uintptr_t i=1;i<USE_PTHREADS_COUNT;++i)
+	for(i=1;i<USE_PTHREADS_COUNT;++i)
 		pthread_join(threads[i], (void**)0);
 #else
 	run((void *)&partitionList[0]);
