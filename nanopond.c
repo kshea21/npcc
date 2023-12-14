@@ -213,13 +213,9 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
-<<<<<<< HEAD
-#include <pthread.h>
-=======
 
 #include <pthread.h>
 
->>>>>>> dylanfr/splitpond
 #ifdef USE_SDL
 #ifdef _MSC_VER
 #include <SDL.h>
