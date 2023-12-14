@@ -757,17 +757,19 @@ uint8_t threadComplete[USE_PTHREADS_COUNT];
 uint8_t threadComplete[1];
 #endif
 
+volatile int exitNow = 0;
 
-/** add a thread to report */
-static void runReporting() {
-        uint8_t allDone = numThreads; 
-        while(allDone > 0) {
-             allDone = numThreads;
-             for(uint64_t i=0; i<numThreads; i++) {
-                  if (threadComplete[i]) {
-                      allDone--;
-                  }
-              }
+/** Add a thread whose sole purpose is to do the reporting */
+static void *runReporting(){ 
+    while (!exitNow) {
+        uint8_t allDone = numThreads;
+        while(allDone>0){
+            allDone = numThreads;
+            for(uint64_t i=0; i<numThreads; i++){
+                if(threadComplete[i]){
+                    allDone--;
+                }
+            }
         }
         allDone = numThreads;
         while(allDone > 0) {
@@ -779,7 +781,9 @@ static void runReporting() {
                 }
          }
         doReport(globalcycle);
-        
+    }
+
+        return (void *)0;
 }
 
 /** Copy memory from partition into global pond */
@@ -816,13 +820,9 @@ static inline void copyMem(struct Partition *p) {
 
 }
 
-
-volatile int exitNow = 0;
-
-
-static void *run(struct Partition *p)
-{
-
+static void *run(void *targ)
+{// void* targ is a partition*
+struct Partition *p = (struct Partition *)targ;
 const uintptr_t threadNo = (uintptr_t)p->threadNo;
 uint64_t width = p->width;
 uint64_t height = p->height;
@@ -1400,19 +1400,19 @@ while ((opt = getopt(argc, argv, "x:y:m:f:v:b:p:c:k:d:ht:")) != -1) {
 /*Initialization moved into makePartitions*/ 
 
     pthread_t reportThread;
-    pthread_create(&reportThread, 0,runReporting, NULL);
+    pthread_create(&reportThread,0,runReporting,(void *)NULL);
 #ifdef USE_PTHREADS_COUNT
 
 	pthread_t threads[USE_PTHREADS_COUNT];
 	for(i=1;i<USE_PTHREADS_COUNT;++i)
-        threadComplete[i]=0;
-		pthread_create(&threads[i],0,run, &partitionList[i]);
-    threadComplete[0] = 0;
-	run(&partitionList[0]);
+        threadComplete[i] = 0;
+        pthread_create(&threads[i],0,run, (void *)&partitionList[i]);
+	threadComplete[0] = 0;
+    run(&partitionList[0]);
 	for(i=1;i<USE_PTHREADS_COUNT;++i)
 		pthread_join(threads[i], (void**)0);
 #else
-	run(&partitionList[0]);
+	run((void *)&partitionList[0]);
 #endif
 
 #ifdef USE_SDL
