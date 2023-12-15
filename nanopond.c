@@ -355,19 +355,11 @@ struct Partition
     uint64_t width;
     /*Height of this partition*/
     uint64_t height;
-<<<<<<< HEAD
-
-    struct Partition* lneighbor; 
-    struct Partition* rneighbor;
-    struct Partition* uneighbor;
-    struct Partition* dneighbor;
-=======
     /*Pointers to neighbors*/
     struct Partition* lNeighbor;
     struct Partition* rNeighbor;
     struct Partition* uNeighbor;
     struct Partition* dNeighbor;
->>>>>>> dylanfr/splitpond
 };
 
 /* The pond is a 2D array of cells */
@@ -477,6 +469,7 @@ for(x=0;x<sizeof(statCounters);++x){
 * @param file Destination
 * @param cell Source
 */
+}
 #ifdef USE_SDL
 static void dumpCell(FILE *file, struct Cell *cell)
 {
